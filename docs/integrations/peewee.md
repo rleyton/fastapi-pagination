@@ -1,4 +1,4 @@
-`fastapi_pagination.ext.peewee.paginate` allows you to paginate `peewee` queries or raw SQL easily.
+`fastapi_pagination.ext.peewee.paginate` allows you to paginate `peewee` queries.
 It can work for both `sync` and `async` peewee databases.
 
 !!! note

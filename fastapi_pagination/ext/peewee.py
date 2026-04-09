@@ -9,7 +9,7 @@ __all__ = [
 
 from collections.abc import Sequence
 from functools import partial
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, cast, overload
 
 from peewee import Database, Model, Query, Select
 
@@ -165,7 +165,7 @@ def create_paginate_query(query: Query, params: RawParams) -> Query:
 def create_count_query(query: Query | RawSQL, *, use_subquery: bool = True) -> Query | RawSQL:
     """Create a COUNT query from a Peewee query or raw SQL."""
     if _is_raw_sql(query):
-        return f"SELECT count(*) FROM ({query}) AS __count_query__"  # type: ignore[return-value]
+        return f"SELECT count(*) FROM ({query}) AS __count_query__"  # noqa: S608
 
     count_query = query.clone()
 
@@ -233,7 +233,7 @@ def _limit_offset_flow(
         paginated_sql = _create_raw_sql_query(query, raw_params)
         cursor = yield db.execute_sql(paginated_sql)
         columns = [desc[0] for desc in cursor.description] if cursor.description else []
-        items = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        items = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
     elif _is_async_db(db):
         query = create_paginate_query(query, raw_params)
         if prefetch:

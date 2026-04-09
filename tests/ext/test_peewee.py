@@ -208,7 +208,7 @@ class TestPeeweeUnwrap:
 
 
 class TestPeeweeAsyncAvailability:
-    def test_apaginate_raises_without_async_support(self, peewee_db, peewee_user):
+    def test_apaginate_raises_without_async_support(self, peewee_user):
         from fastapi_pagination.ext.peewee import PEEWEE_ASYNC_AVAILABLE, apaginate
 
         if PEEWEE_ASYNC_AVAILABLE:

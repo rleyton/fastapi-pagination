@@ -217,7 +217,6 @@ set_page(Page[User])
 set_params(Params(page=1, size=10))
 
 page = paginate(
-    None,
     User.select().order_by(User.id),
     count_query=User.select(fn.COUNT()).where(User.age > 20),
 )

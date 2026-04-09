@@ -9,7 +9,7 @@ __all__ = [
 
 from collections.abc import Sequence
 from functools import partial
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, cast
 
 from peewee import Database, Model, Query, Select
 

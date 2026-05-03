@@ -102,15 +102,15 @@ def _total_flow(
     query: Query | RawSQL,
     db: Database | Any,
 ) -> TotalFlow:
-    count_query = create_count_query(query)
-
-    if _is_raw_sql(count_query):
+    if _is_raw_sql(query):
+        count_query = create_count_query(query)
         cursor = yield db.execute_sql(count_query)
         row = cursor.fetchone()
         total = row[0] if row else 0
     elif AsyncDatabaseMixin is not None and isinstance(db, AsyncDatabaseMixin):
-        total = yield db.count(count_query)  # type: ignore[unresolved-attr]
+        total = yield db.count(query)  # type: ignore[unresolved-attr]
     else:
+        count_query = create_count_query(query)
         cursor = yield db.execute(count_query)
         row = cursor.fetchone()
         total = row[0] if row else 0

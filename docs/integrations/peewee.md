@@ -59,10 +59,8 @@ async def get_users(params: Params = Depends()):
 `paginate` accepts the following `peewee` related arguments:
 
 * `db` - Database instance. Required for raw SQL queries, optional otherwise (extracted from query's model).
-* `query` - is the query that you want to paginate, it can be either a select query, Model class, or raw SQL string.
+* `query` - is the query that you want to paginate, it can be either a Peewee query or a raw SQL string.
 * `subquery_count` - is a boolean that indicates if the count query should be executed as a subquery or not.
-* `count_query` - is a query that will be used to count the total number of rows, if not provided, it will be generated automatically.
-* `unique` - is a boolean indicates if `unique` should be called on result rows or not.
 
 ### Sync Usage
 
@@ -124,35 +122,6 @@ async def get_users():
     set_params(Params(page=1, size=10))
 
     page = await apaginate(User.select().order_by(User.id))
-    print(page)
-```
-
-### Raw SQL Usage
-
-```py
-from peewee import Model, TextField, IntegerField, SqliteDatabase
-
-from fastapi_pagination import set_params, set_page, Page, Params
-from fastapi_pagination.ext.peewee import paginate
-
-db = SqliteDatabase(":memory:")
-
-
-class User(Model):
-    name = TextField()
-    age = IntegerField()
-
-    class Meta:
-        database = db
-
-
-db.create_tables([User])
-User.create(name="John", age=25)
-
-set_page(Page[User])
-set_params(Params(page=1, size=10))
-
-page = paginate("SELECT * FROM users WHERE age > 20", db=db)
 print(page)
 ```
 
@@ -186,74 +155,4 @@ paginate(User.select(), subquery_count=False)
 
 print("subquery_count=True")
 paginate(User.select(), subquery_count=True)
-```
-
-### `count_query` param
-
-```py
-from peewee import Model, TextField, IntegerField, SqliteDatabase, fn
-
-from fastapi_pagination import set_params, set_page, Page, Params
-from fastapi_pagination.ext.peewee import paginate
-
-db = SqliteDatabase(":memory:")
-
-
-class User(Model):
-    name = TextField()
-    age = IntegerField()
-
-    class Meta:
-        database = db
-
-
-db.create_tables([User])
-
-for name, age in [("John", 25), ("Jane", 30), ("Bob", 20)]:
-    User.create(name=name, age=age)
-
-set_page(Page[User])
-set_params(Params(page=1, size=10))
-
-page = paginate(
-    User.select().order_by(User.id),
-    count_query=User.select(fn.COUNT()).where(User.age > 20),
-)
-print(page)
-```
-
-### `unique` param
-
-When using `joinedload` or similar eager loading, you may get duplicate rows. The `unique` parameter ensures duplicate rows are removed while preserving order.
-
-```py
-from peewee import Model, TextField, IntegerField, SqliteDatabase
-
-from fastapi_pagination import set_params, set_page, Page, Params
-from fastapi_pagination.ext.peewee import paginate
-
-db = SqliteDatabase(":memory:")
-
-
-class User(Model):
-    name = TextField()
-    age = IntegerField()
-
-    class Meta:
-        database = db
-
-
-db.create_tables([User])
-User.create(name="John", age=25)
-
-set_page(Page[User])
-set_params(Params(page=1, size=10))
-
-print("unique=True (default)")
-page = paginate(User.select(), unique=True)
-print(page)
-
-print("unique=False")
-page = paginate(User.select(), unique=False)
-print(page)
 ```

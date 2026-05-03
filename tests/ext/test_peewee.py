@@ -9,7 +9,6 @@ from tests.utils import maybe_async
 
 @pytest.fixture(scope="class")
 def peewee_db(is_async_db, sqlite_file):
-    """Create Peewee database instance."""
     if is_async_db:
         from playhouse.pwasyncio import AsyncSqliteDatabase
 
@@ -27,14 +26,13 @@ def peewee_db(is_async_db, sqlite_file):
         from playhouse.pwasyncio import greenlet_spawn
 
         asyncio.run(greenlet_spawn(db.close))
-        asyncio.run(db.close_pool())
+        asyncio.run(db.close_pool())  # type: ignore[attr-defined]
     else:
         db.close()
 
 
 @pytest.fixture(scope="class")
 def peewee_user(peewee_db):
-    """Create User model."""
     from peewee import IntegerField
 
     class User(Model):
@@ -50,7 +48,6 @@ def peewee_user(peewee_db):
 
 @pytest.fixture(scope="class")
 def peewee_order(peewee_db, peewee_user):
-    """Create Order model."""
     from peewee import ForeignKeyField, IntegerField
 
     class Order(Model):
@@ -66,10 +63,6 @@ def peewee_order(peewee_db, peewee_user):
 
 
 class _PeeweePaginateFunc:
-    """Helper class for peewee pagination tests."""
-
-    add_pydantic_v1_suites = True
-
     @pytest.fixture(scope="session")
     def paginate_func(self, is_async_db):
         if is_async_db:
@@ -79,7 +72,7 @@ class _PeeweePaginateFunc:
 
 
 @async_sync_testsuite
-class TestPeeweeDefault(_PeeweePaginateFunc, BasePaginationTestSuite):
+class TestPeewee(_PeeweePaginateFunc, BasePaginationTestSuite):
     @pytest.fixture(scope="class")
     def query(self, peewee_user):
         return peewee_user.select().order_by(peewee_user.id)
@@ -97,19 +90,10 @@ class TestPeeweeDefault(_PeeweePaginateFunc, BasePaginationTestSuite):
             q = peewee_user.select(peewee_user.id, peewee_user.name).order_by(peewee_user.id)
             return await maybe_async(paginate_func(q))
 
-        return builder.build()
-
-
-@async_sync_testsuite
-class TestPeeweeRelationship(_PeeweePaginateFunc, BasePaginationTestSuite):
-    @pytest.fixture(scope="class")
-    def app(self, builder, peewee_user, peewee_order, paginate_func):
-        builder = builder.new()
-
         @builder.both.relationship
-        async def route():
+        async def route_relationship():
             q = peewee_user.select().join(peewee_order).order_by(peewee_user.id).distinct()
-            return await maybe_async(paginate_func(q, unique=False, prefetch=(peewee_order.select(),)))
+            return await maybe_async(paginate_func(q, prefetch=(peewee_order.select(),)))
 
         return builder.build()
 
@@ -167,17 +151,6 @@ class TestPeeweeUnwrap:
 
         assert page.items
 
-    def test_unique_false(self, peewee_db, peewee_user):
-        with peewee_db.atomic():
-            peewee_db.create_tables([peewee_user], safe=True)
-            page = paginate(
-                peewee_user.select(),
-                params=Params(page=1, size=10),
-                unique=False,
-            )
-
-        assert page.items
-
 
 class TestPeeweeAsyncAvailability:
     def test_apaginate_raises_without_async_support(self, peewee_user):
@@ -228,7 +201,7 @@ class TestPeeweeRawSQL(_PeeweePaginateFunc):
 
     def test_paginate_raw_sql_missing_db_sync(self, peewee_db, peewee_user):
         with pytest.raises(ValueError, match="Database is required for raw SQL"):
-            paginate("SELECT * FROM users", params=Params(page=1, size=10))
+            paginate("SELECT * FROM users", params=Params(page=1, size=10))  # type: ignore[arg-type]
 
     def test_paginate_raw_sql_missing_db_async(self, peewee_db, peewee_user):
         if not PEEWEE_ASYNC_AVAILABLE:
@@ -303,11 +276,11 @@ class TestPeeweeCreateCountQuery:
             peewee_db.create_tables([peewee_user], safe=True)
 
         raw_query = RawQuery(peewee_db, "SELECT * FROM users")
-        count_query = create_count_query(raw_query, use_subquery=True)
+        count_query = create_count_query(raw_query, use_subquery=True)  # type: ignore[arg-type]
 
         assert count_query is not None
 
-        count_query_no_subquery = create_count_query(raw_query, use_subquery=False)
+        count_query_no_subquery = create_count_query(raw_query, use_subquery=False)  # type: ignore[arg-type]
         assert count_query_no_subquery is not None
 
     def test_create_count_query_with_raw_sql_string(self, peewee_db, peewee_user):

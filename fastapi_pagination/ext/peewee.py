@@ -16,7 +16,7 @@ from peewee import Database, ModelSelect, Query
 from fastapi_pagination.api import create_page
 from fastapi_pagination.bases import AbstractParams, RawParams
 from fastapi_pagination.config import Config
-from fastapi_pagination.ext.raw_sql import create_paginate_query_from_text
+from fastapi_pagination.ext.raw_sql import create_count_query_from_text, create_paginate_query_from_text
 from fastapi_pagination.flow import flow, run_async_flow, run_sync_flow
 from fastapi_pagination.flows import (
     LimitOffsetFlow,
@@ -46,7 +46,6 @@ def paginate(
     params: AbstractParams | None = None,
     *,
     db: Database | None = None,
-    subquery_count: bool = True,
     prefetch: tuple[Query, ...] | None = None,
     transformer: SyncItemsTransformer | None = None,
     additional_data: AdditionalData | None = None,
@@ -61,7 +60,6 @@ def paginate(
     params: AbstractParams | None = None,
     *,
     db: Database,
-    subquery_count: bool = True,
     prefetch: tuple[Query, ...] | None = None,
     transformer: SyncItemsTransformer | None = None,
     additional_data: AdditionalData | None = None,
@@ -92,9 +90,9 @@ def create_paginate_query(query: Query, params: RawParams) -> Query:
     return query
 
 
-def create_count_query(query: Query | RawSQL, *, use_subquery: bool = True) -> Query | RawSQL:
+def create_count_query(query: Query | RawSQL) -> Query | RawSQL:
     if _is_raw_sql(query):
-        return f"SELECT count(*) FROM ({query}) AS __count_query__"  # noqa: S608
+        return create_count_query_from_text(cast(str, query))
 
     model = getattr(query, "model", None)
 
@@ -109,19 +107,15 @@ def create_count_query(query: Query | RawSQL, *, use_subquery: bool = True) -> Q
     if hasattr(query_clone, "offset"):
         query_clone = query_clone.offset(None)
 
-    if use_subquery:
-        return model.select(fn.COUNT(1)).from_(query_clone)
-
-    return model.select(fn.COUNT(1))
+    return model.select(fn.COUNT(1)).from_(query_clone)
 
 
 @flow
 def _total_flow(
     query: Query | RawSQL,
     db: Database | Any,
-    subquery_count: bool,
 ) -> TotalFlow:
-    count_query = create_count_query(query, use_subquery=subquery_count)
+    count_query = create_count_query(query)
 
     if _is_raw_sql(count_query):
         cursor = yield db.execute_sql(count_query)
@@ -175,7 +169,6 @@ def _peewee_flow(
     params: AbstractParams | None = None,
     *,
     is_async: bool = False,
-    subquery_count: bool = True,
     prefetch: tuple[Query, ...] | None = None,
     transformer: ItemsTransformer | None = None,
     additional_data: AdditionalData | None = None,
@@ -185,7 +178,7 @@ def _peewee_flow(
 
     page = yield from generic_flow(
         async_=is_async,
-        total_flow=partial(_total_flow, query, db, subquery_count),
+        total_flow=partial(_total_flow, query, db),
         limit_offset_flow=partial(_limit_offset_flow, query, db, prefetch=prefetch),
         params=params,
         inner_transformer=_inner_transformer,
@@ -211,7 +204,6 @@ def paginate(
     params: AbstractParams | None = None,
     *,
     db: Database | None = None,
-    subquery_count: bool = True,
     prefetch: tuple[Query, ...] | None = None,
     transformer: SyncItemsTransformer | None = None,
     additional_data: AdditionalData | None = None,
@@ -238,7 +230,6 @@ def paginate(
             db=actual_db,
             params=params,
             is_async=False,
-            subquery_count=subquery_count,
             prefetch=prefetch,
             transformer=transformer,
             additional_data=additional_data,
@@ -252,7 +243,6 @@ async def apaginate(
     params: AbstractParams | None = None,
     *,
     db: Database | None = None,
-    subquery_count: bool = True,
     prefetch: tuple[Query, ...] | None = None,
     transformer: AsyncItemsTransformer | None = None,
     additional_data: AdditionalData | None = None,
@@ -286,7 +276,6 @@ async def apaginate(
             db=actual_db,
             params=params,
             is_async=True,
-            subquery_count=subquery_count,
             prefetch=prefetch,
             transformer=transformer,
             additional_data=additional_data,

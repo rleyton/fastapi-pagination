@@ -251,12 +251,9 @@ class TestPeeweeCreateCountQuery:
             peewee_db.create_tables([peewee_user], safe=True)
 
         query = peewee_user.select()
-        count_query = create_count_query(query, use_subquery=True)
+        count_query = create_count_query(query)
 
         assert isinstance(count_query, Select)
-
-        count_query_no_subquery = create_count_query(query, use_subquery=False)
-        assert isinstance(count_query_no_subquery, Select)
 
     def test_create_count_query_with_limit_offset(self, peewee_db, peewee_user):
         from peewee import Select
@@ -265,7 +262,7 @@ class TestPeeweeCreateCountQuery:
             peewee_db.create_tables([peewee_user], safe=True)
 
         query = peewee_user.select().limit(10).offset(5)
-        count_query = create_count_query(query, use_subquery=True)
+        count_query = create_count_query(query)
 
         assert isinstance(count_query, Select)
 
@@ -276,18 +273,15 @@ class TestPeeweeCreateCountQuery:
             peewee_db.create_tables([peewee_user], safe=True)
 
         raw_query = RawQuery(peewee_db, "SELECT * FROM users")
-        count_query = create_count_query(raw_query, use_subquery=True)  # type: ignore[arg-type]
+        count_query = create_count_query(raw_query)  # type: ignore[arg-type]
 
         assert count_query is not None
-
-        count_query_no_subquery = create_count_query(raw_query, use_subquery=False)  # type: ignore[arg-type]
-        assert count_query_no_subquery is not None
 
     def test_create_count_query_with_raw_sql_string(self, peewee_db, peewee_user):
         with peewee_db.atomic():
             peewee_db.create_tables([peewee_user], safe=True)
 
         raw_sql = "SELECT * FROM users"
-        count_query = create_count_query(raw_sql, use_subquery=True)
+        count_query = create_count_query(raw_sql)
 
         assert count_query == "SELECT count(*) FROM (SELECT * FROM users) AS __count_query__"

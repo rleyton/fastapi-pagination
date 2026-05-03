@@ -60,7 +60,6 @@ async def get_users(params: Params = Depends()):
 
 * `db` - Database instance. Required for raw SQL queries, optional otherwise (extracted from query's model).
 * `query` - is the query that you want to paginate, it can be either a Peewee query or a raw SQL string.
-* `subquery_count` - is a boolean that indicates if the count query should be executed as a subquery or not.
 
 ### Sync Usage
 
@@ -123,36 +122,4 @@ async def get_users():
 
     page = await apaginate(User.select().order_by(User.id))
 print(page)
-```
-
-### `subquery_count` param
-
-```py
-from peewee import Model, TextField, IntegerField, SqliteDatabase
-
-from fastapi_pagination import set_params, set_page, Page, Params
-from fastapi_pagination.ext.peewee import paginate
-
-db = SqliteDatabase(":memory:")
-
-
-class User(Model):
-    name = TextField()
-    age = IntegerField()
-
-    class Meta:
-        database = db
-
-
-db.create_tables([User])
-User.create(name="John", age=25)
-
-set_page(Page[User])
-set_params(Params(page=1, size=10))
-
-print("subquery_count=False")
-paginate(User.select(), subquery_count=False)
-
-print("subquery_count=True")
-paginate(User.select(), subquery_count=True)
 ```

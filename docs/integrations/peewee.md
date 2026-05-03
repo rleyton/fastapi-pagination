@@ -60,6 +60,7 @@ async def get_users(params: Params = Depends()):
 
 * `db` - Database instance. Required for raw SQL queries, optional otherwise (extracted from query's model).
 * `query` - is the query that you want to paginate, it can be either a Peewee query or a raw SQL string.
+* `prefetch` - A tuple of queries for eager loading related records (avoids N+1 query problems).
 
 ### Sync Usage
 
@@ -122,4 +123,40 @@ async def get_users():
 
     page = await apaginate(User.select().order_by(User.id))
 print(page)
+```
+
+### Prefetch Usage
+
+```py
+from peewee import Model, TextField, IntegerField, ForeignKeyField
+
+from fastapi_pagination import set_params, set_page, Page, Params
+from fastapi_pagination.ext.peewee import paginate
+
+db = SqliteDatabase(":memory:")
+
+
+class User(Model):
+    name = TextField()
+
+    class Meta:
+        database = db
+
+
+class Order(Model):
+    user = ForeignKeyField(User, backref="orders")
+    name = TextField()
+
+    class Meta:
+        database = db
+
+
+db.create_tables([User, Order])
+
+set_page(Page[User])
+set_params(Params(page=1, size=10))
+
+page = paginate(User.select(), prefetch=(Order.select(),))
+for user in page.items:
+    print(user.name, [order.name for order in user.orders])
 ```

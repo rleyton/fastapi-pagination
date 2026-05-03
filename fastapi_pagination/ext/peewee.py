@@ -40,34 +40,6 @@ PEEWEE_ASYNC_AVAILABLE = AsyncDatabaseMixin is not None
 RawSQL: TypeAlias = str
 
 
-@overload
-def paginate(
-    query: Query,
-    params: AbstractParams | None = None,
-    *,
-    db: Database | None = None,
-    prefetch: tuple[Query, ...] | None = None,
-    transformer: SyncItemsTransformer | None = None,
-    additional_data: AdditionalData | None = None,
-    config: Config | None = None,
-) -> Any:
-    pass
-
-
-@overload
-def paginate(
-    query: RawSQL,
-    params: AbstractParams | None = None,
-    *,
-    db: Database,
-    prefetch: tuple[Query, ...] | None = None,
-    transformer: SyncItemsTransformer | None = None,
-    additional_data: AdditionalData | None = None,
-    config: Config | None = None,
-) -> Any:
-    pass
-
-
 def _get_database(query: ModelSelect) -> Database:
     return query.model._meta.database
 
@@ -80,6 +52,21 @@ def _is_async_db(conn: Any) -> bool:
 
 def _is_raw_sql(query: Any) -> bool:
     return isinstance(query, str)
+
+
+def _resolve_query_and_db(
+    query: Query | RawSQL | None,
+    db: Database | None,
+) -> tuple[Query | RawSQL, Database | Any]:
+    if query is None:
+        raise ValueError("Query cannot be None")
+
+    if _is_raw_sql(query):
+        if db is None:
+            raise ValueError("Database is required for raw SQL queries")
+        return query, db
+
+    return query, db if db is not None else _get_database(cast(ModelSelect, query))
 
 
 def create_paginate_query(query: Query, params: RawParams) -> Query:
@@ -144,20 +131,19 @@ def _limit_offset_flow(
         cursor = yield db.execute_sql(paginated_sql)
         columns = [desc[0] for desc in cursor.description] if cursor.description else []
         items = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
-    elif _is_async_db(db):
-        query = create_paginate_query(cast(Query, query), raw_params)
-        if prefetch:
-            items = yield db.aprefetch(query, *prefetch)  # type: ignore[unresolved-attr]
-        else:
-            items = yield db.list(query)  # type: ignore[unresolved-attr]
-    elif prefetch:
-        from peewee import prefetch as peewee_prefetch
-
-        query = create_paginate_query(cast(Query, query), raw_params)
-        items = yield peewee_prefetch(query, *prefetch)
     else:
         query = create_paginate_query(cast(Query, query), raw_params)
-        items = yield list(query)
+        if _is_async_db(db):
+            if prefetch:
+                items = yield db.aprefetch(query, *prefetch)  # type: ignore[unresolved-attr]
+            else:
+                items = yield db.list(query)  # type: ignore[unresolved-attr]
+        elif prefetch:
+            from peewee import prefetch as peewee_prefetch
+
+            items = yield peewee_prefetch(query, *prefetch)
+        else:
+            items = yield list(query)
 
     return items
 
@@ -199,6 +185,34 @@ def _inner_transformer(
     return items
 
 
+@overload
+def paginate(
+    query: Query,
+    params: AbstractParams | None = None,
+    *,
+    db: Database | None = None,
+    prefetch: tuple[Query, ...] | None = None,
+    transformer: SyncItemsTransformer | None = None,
+    additional_data: AdditionalData | None = None,
+    config: Config | None = None,
+) -> Any:
+    pass
+
+
+@overload
+def paginate(
+    query: RawSQL,
+    params: AbstractParams | None = None,
+    *,
+    db: Database,
+    prefetch: tuple[Query, ...] | None = None,
+    transformer: SyncItemsTransformer | None = None,
+    additional_data: AdditionalData | None = None,
+    config: Config | None = None,
+) -> Any:
+    pass
+
+
 def paginate(
     query: Query | RawSQL | None,
     params: AbstractParams | None = None,
@@ -209,20 +223,7 @@ def paginate(
     additional_data: AdditionalData | None = None,
     config: Config | None = None,
 ) -> Any:
-    if query is None:
-        raise ValueError("Query cannot be None")
-
-    actual_query: Query | RawSQL
-    actual_db: Database | Any
-
-    if _is_raw_sql(query):
-        if db is None:
-            raise ValueError("Database is required for raw SQL queries")
-        actual_query = query
-        actual_db = db
-    else:
-        actual_query = query
-        actual_db = db if db is not None else _get_database(cast(ModelSelect, actual_query))
+    actual_query, actual_db = _resolve_query_and_db(query, db)
 
     return run_sync_flow(
         _peewee_flow(
@@ -255,20 +256,7 @@ async def apaginate(
             "or use sync paginate()."
         )
 
-    if query is None:
-        raise ValueError("Query cannot be None")
-
-    actual_query: Query | RawSQL
-    actual_db: Database | Any
-
-    if _is_raw_sql(query):
-        if db is None:
-            raise ValueError("Database is required for raw SQL queries")
-        actual_query = query
-        actual_db = db
-    else:
-        actual_query = query
-        actual_db = db if db is not None else _get_database(cast(ModelSelect, actual_query))
+    actual_query, actual_db = _resolve_query_and_db(query, db)
 
     return await run_async_flow(
         _peewee_flow(
